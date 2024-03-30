@@ -24,7 +24,9 @@ class ExcelParsing:
 
     def main_call(self):
         list_dicts = []
+        print(f'список всех файлов:\n{self.files}')
         for file in self.files:
+            print(f'текущий файл - {file}')
             self.text_data = self.parse_excel_file_data(file)
             self.data['файл,из которого взяты данные'] = file
             self.text_data_text = ' '.join(self.text_data)
@@ -49,7 +51,6 @@ class ExcelParsing:
             list_dicts.append(self.data.copy())
             self.delete_data()
         return list_dicts
-
     def delete_data(self):
         for i in self.data:
             self.data[i] = None
@@ -59,7 +60,7 @@ class ExcelParsing:
             lst = []
             # Открываем Excel файл
             wb = openpyxl.load_workbook(file_path)
-            sheet = wb.active  # Получаем активный лист
+            sheet = wb['ИД']  # Получаем лист с исходными данными
 
             # Выводим каждую ячейку на экран
             for row in sheet.iter_rows(values_only=True):
@@ -69,6 +70,7 @@ class ExcelParsing:
             return lst
         except Exception as e:
             print("Ошибка при парсинге Excel файла:", e)
+            raise PermissionError('Закройте файлы, находяищееся в папке')
 
 
     def file_or_files(self,file):
@@ -88,19 +90,30 @@ class ExcelParsing:
     def fio(self):
         '''Находим фамилию имя отчество заказчика'''
         shablons = r'[А-Я][а-я]+\s*[А-Я][а-я]+\s*[А-Я][а-я]+'
-
         fio_data = re.findall(shablons,self.text_data_text)
-        lst_fio_data = fio_data[0].split(' ')
-        self.data['фамилия'] = lst_fio_data[0]
-        self.data['имя'] = lst_fio_data[1]
-        self.data['отчество'] = lst_fio_data[2]
+        print('ДАННЫЕ ФИО')
+        print(fio_data)
+        if fio_data:
+            lst_fio_data = fio_data[0].split(' ')
+            for i in lst_fio_data:
+                if i.isspace() or i == '':
+                    lst_fio_data.remove(i)
+            self.data['фамилия'] = lst_fio_data[0]
+            self.data['имя'] = lst_fio_data[1]
+            self.data['отчество'] = lst_fio_data[2]
+
 
 
     def snils(self):
-        text = self.check_text_search("снилс")
-        shablons = r'\d+-\d+-\d+ \d+'
+        print('текст - ')
+        name_column = self.search_column_using_re(r'\s*снилс\s*')
+        print('имя колонки - ',name_column)
+        text = self.check_text_search(name_column)
+        print(type(text))
+        shablons = r'\d{3}-\d{3}-\d{3}\s*[- ]\s*\d{2}'
         res = re.findall(shablons,text,re.I|re.DOTALL)
-        self.data['снилс'] = res[0]
+        if res:
+            self.data['снилс'] = res[0]
 
     def seria_passport(self):
         text = self.check_text_search("серия")
@@ -137,11 +150,14 @@ class ExcelParsing:
         self.data['дата выдачи'] = lst_res[0]
 
     def department_code(self):
-        text = self.check_text_search("код подразделения")
+        name_column = self.search_column_using_re(r'\s*код\s*подразделения\s*$')
+        text = self.check_list_search(name_column)
         shablons = r'\d{3}-\d{3}'
-        res = re.findall(shablons, text, re.I | re.DOTALL)
-        self.data['код подразделения'] = res[0]
-
+        for i in text:
+            res = re.findall(shablons, i, re.I | re.DOTALL)
+            if res:
+                self.data['код подразделения'] = res[0]
+                break
 
     def registered_address(self):
         text = self.check_list_search('адрес по прописки')
@@ -157,28 +173,34 @@ class ExcelParsing:
         text = self.check_list_search('индекс')
         lst_res = []
         for i in text:
-            res = re.findall(r'\d{6}.*$', i)
+            res = re.findall(r'\s*\d{3}[-\s*]\d{3}\s*$', i)
             if len(res) == 0:
                 continue
             lst_res.append(i)
-        self.data['индекс'] = lst_res[0]
+        if lst_res:
+            self.data['индекс'] = lst_res[0]
 
     def phone_number(self):
-        text = self.check_list_search('телефон')
+        name_column = self.search_column_using_re('\s*телефон\s*$')
+        text = self.check_list_search(name_column)
         lst_res = []
         for i in text:
-            res = re.findall(r'^\+7.+|^8.+', i)
+            res = re.findall(r'^\+7.{8}.*$|^8.{8}.*$', i)
             if len(res) == 0:
                 continue
             lst_res.append(i)
         print(lst_res)
-        self.data['телефон'] = lst_res[0]
+        if lst_res:
+            self.data['телефон'] = lst_res[0]
+        else:
+            print('номер телефона не найден')
 
     def kad_num_work(self):
         text = self.check_text_search('кадастровый номер зу/окс')
         shablons = r'\d+\s*\d+\s*\d+\s*\d+'
         res = re.findall(shablons,text)
-        self.data['кадастровый номер работ'] = res[0].replace(' ',':')
+        if res:
+            self.data['кадастровый номер работ'] = res[0].replace(' ',':')
 
 
     def working_type(self):
@@ -192,6 +214,7 @@ class ExcelParsing:
                     res_lst += res
                     break
         if not res_lst:
+            print('колонка с типом работ не найдена')
             raise ValueError ('Колонка не найдена: столбец указан с ошибками или указан другим способом')
         lower_lst = self.check_list_search(res_lst[0])
         print(lower_lst)
@@ -235,7 +258,8 @@ class ExcelParsing:
             if len(res) == 0:
                 continue
             lst_val.append(i)
-        self.data['дата договора'] = lst_val[0]
+        if lst_val:
+            self.data['дата договора'] = lst_val[0]
 
     def contract_number(self):
         shablons_name_column = [r'^\s*номер\s*$']
@@ -265,11 +289,12 @@ class ExcelParsing:
         text = self.check_list_search('ооо')
         lst_val = []
         for i in text:
-            res = re.findall(r'\d+0$', i)
+            res = re.findall(r'\d*$', i)
             if len(res) == 0:
                 continue
             lst_val.append(i)
-        self.data['стоимость работ ООО'] = lst_val[0]
+        if lst_val:
+            self.data['стоимость работ ООО'] = lst_val[0]
 
 
 
@@ -277,11 +302,12 @@ class ExcelParsing:
         text = self.check_list_search('ип')
         lst_val = []
         for i in text:
-            res = re.findall(r'\d+0*$', i)
+            res = re.findall(r'\d*$', i)
             if len(res) == 0:
                 continue
             lst_val.append(i)
-        self.data['стоимость работ ИП'] = lst_val[0]
+        if lst_val:
+            self.data['стоимость работ ИП'] = lst_val[0]
 
 
     def check_text_search(self,name_column:str):
@@ -309,7 +335,6 @@ class ExcelParsing:
     def search_column_using_re(self,template):
         res_values = []
         for i in self.apply_lower_methon_on_list():
-
             res = re.findall(template,i)
             if res != []:
                 res_values.append(i)
@@ -340,6 +365,8 @@ class ExcelParsing:
         self.text_data_text.replace(value,'')
         self.text_data.remove(value)
 
+
+
     def searching_func_base(self):
         # шадлоны для поиска колонки
         shablons_name_column = []
@@ -349,7 +376,7 @@ class ExcelParsing:
 
 
 
-test = ExcelParsing(r'C:\Users\Slava-Stat\Desktop\Проекты_Python\Excel_parsing\пример_файлов')
+test = ExcelParsing(r'C:\Users\Slava-Stat\Desktop\договора')
 res = test.main_call()
 excel_write.ExcelWrite(test.file).write(res)
 

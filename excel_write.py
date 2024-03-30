@@ -62,6 +62,6 @@ class ExcelWrite:
         else:
             print('файл не был найден')
 
-ExcelWrite(r'C:\Users\Slava-Stat\Desktop\Проекты_Python\Excel_parsing').check_and_delete(r'C:\Users\Slava-Stat\Desktop\Проекты_Python\Excel_parsing\\result_programm_working_excel_parsing.xlsx')
+
 
 
