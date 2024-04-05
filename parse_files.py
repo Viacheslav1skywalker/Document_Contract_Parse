@@ -1,441 +1,155 @@
-import os
-from pathlib import Path
 import re
+
+import PyPDF2
+import aspose.words as aw
 from docx import Document
-
-def extract_text_from_docx(file_path):
-    doc = Document(file_path)
-    full_text = []
-    for para in doc.paragraphs:
-        full_text.append(para.text)
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                full_text.append(cell.text)
-    return '\n'.join(full_text)
-
+import os
+import read_files
+import write_in_file
 
 class ParsingContractDocument:
-    def __init__(self,path:str):
+    dict_values = {'название организации':None,'инн':None,
+                   'кпп':None,'огрн':None,
+                   'расчетный счет':None,'корреспондентский счет':None,
+                   'бик':None,'адрес':None,
+                   'телефон':None,'номер договора':None,
+                   'дата договора':None,'кадастровый номер работ':None,
+                   'виды работ':None,'стоимость работ':None,
+                   'файл из которого взяты данные':None}
+    def __init__(self,file_files):
         '''data - file or direcory name'''
-        # self.text_doc = self.extract_data_doc_file(path)
-        self.text_doc = '''ДОГОВОР  № 2022-0280
-
-
-      г. Бор                                                                                                                                                                         "01" августа  2022 г.
-
-Закрытое акционерное общество "Вторая автобаза" именуемое в дальнейшем "Заказчик", в лице представителя Щербакова Олега Александровича, действующего на основании доверенности от 22.06.2021 года №93-21/007, с одной стороны и  ООО  "Геоид-НН" именуемое в  дальнейшем  "Подрядчик", в лице Директора Зубова Дмитрия Владимировича, действующего на основании  Устава и  свидетельства о допуске к определенному виду или видам работ, которые оказывают влияние на безопасность объектов капитального строительства  № СРО-И-033-16032012  №8 от 16.08.2019г, выданного АС «СтройИзыскания» Ассоциация инженеров-изыскателей «СтройИзыскания», с другой стороны, вместе именуемые "Стороны", заключили настоящий договор о нижеследующем:
-1.ПРЕДМЕТ ДОГОВОРА 
-
-1.1 "Заказчик" поручает, а "Подрядчик" принимает на себя выполнение инженерно-геодезических и кадастровых работ на земельном участке с КН 52:25:0010326:23, расположенного по адресу: Нижегородская область, г. Кстово, ул. Магистральная, д.4Б. 
-1.2 Наименование и сроки выполнения отдельных этапов работ определяются календарным планом, составляющим неотъемлемую  часть настоящего договора.
-1.3 Работы, не предусмотренные заданием, необходимость в которых выявилась в процессе выполнения договора, оформляется дополнительным соглашением сторон в письменной форме.
-1.4 Источник финансирования работ: средства Заказчика.
-
-2. ПРАВА И ОБЯЗАННОСТИ СТОРОН
-
-2.1 Подрядчик вправе:
-а) запрашивать и получать от Заказчика информацию необходимую для выполнения работ предусмотренных договором.
-б) привлечь к исполнению своих обязательств третьих лиц. В этом случае Подрядчик несет ответственность по настоящему Договору за действия привлекаемых им к исполнению третьих лиц, как за свои собственные.
-2.2. Подрядчик обязан:
-а) выполнить работы в соответствии с Техническим заданием, графическим заданием при наличие;
-б) в 5-тидневный срок информировать Заказчика о приостановлении выполнения работ с соответствующими обоснованиями;
-в) согласовать готовую техническую документацию с Заказчиком.
-  2.3. Заказчик вправе:
-а) проверять ход и качество выполнения Подрядчиком условий договора.
-2.4. Заказчик обязан:
-а) принять и оплатить результаты работ, выполненных в соответствии с условиями договора;
-б) своевременно передавать Подрядчику необходимые для выполнения работ информацию и исходные материалы.
-
-3.ЦЕНА ДОГОВОРА И ПОРЯДОК РАСЧЁТОВ
-
-3.1. Стоимость работ по договору составляет:  10 000 (десять тысяч) рублей 00 копейки (НДС не облагается) путем перечисления подлежащих оплате сумм на расчетный счет Подрядчика, указанный в настоящем договоре.
-      3.2. Оплата по настоящему договору производится в безналичной форме на основании выставленного счета в размере 100 % от  суммы договора.
- 3.3. В случае возникновения необходимости в проведении дополнительных работ и по этой причине в существенном превышении определенной цены работ, «Подрядчик» обязан своевременно предупредить об этом «Заказчика».
-3.4. Цена договора может быть изменена по согласию сторон на основании дополнительного соглашения, являющегося составной частью данного договора.
-
-4.ПОРЯДОК  СДАЧИ И ПРИЁМКИ РАБОТ
-
-4.1. Приёмка и оценка выполненных работ определяется в соответствии с требованиями технического задания.
-4.2. По завершению работ Подрядчик предоставляет Заказчику  Акт готовности выполненных   работ.
-4.3. Заказчик обязуется принять работу в течение 5-ти дней со дня получения акта сдачи-приёмки и отчётных документов и направить Подрядчику подписанный акт или мотивированный отказ в приёмке работ.
-4.4.  В случае мотивированного отказа  Заказчиком от приёмки работ Сторонами составляется 
-       двухсторонний акт с указанием перечня необходимых доработок и сроков их выполнения.
-4.5. Если при приемке выполненных работ будет выявлена необходимость проведения дополнительных работ или изменения отдельных условий в отличие от первоначального технического задания, то эти работы производятся по дополнительному соглашению с указанием срока их выполнения и стоимости.
-
-
-5. СРОКИ ВЫПОЛНЕНИЯ РАБОТ
-
-4.1. Началом выполнения работ считается день, следующий за днем поступления оплаты согласно п.3.1. Договора на расчетный счет Подрядчика, при условии выполнения Заказчиком п.п. 3.2 
-4.2. Подрядчик вправе досрочно выполнить работы, а Заказчик имеет право  их принять и оплатить.
-4.3. Общий срок выполнения работ  составит 15  рабочих дней. В связи с ограниченным доступом на объекты, с незавершенными монтажными и демонтажными работами на объектах и не возможностью обеспечить безопасные условия выполнения работ  специалистам со стороны Подрядчика, в соответствии с требованиями трудового законодательства Российской Федерации срок может быть продлен до устранения вышеуказанных причин.
-
-6. ОТВЕТСТВЕННОСТЬ СТОРОН
-
-5.1 В случае неисполнения Заказчиком обязательств по предварительной оплате работ, 
-      Подрядчик вправе приостановить исполнение своих обязательств, при этом Заказчик возмещает убытки в размере фактически понесённых им затрат.
-5.2 При обнаружении недостатков в выполненных работах (этапах) Подрядчик обязан безвозмездно их устранить.
-5.3 За невыполнение работ в установленный договором срок  Подрядчик уплачивает Заказчику  неустойку,  определённую в процентах от стоимости работ. Размер процента определяется учётной ставкой рефинансирования  Центрального банка  РФ на день  сдачи работ.
-5.4 Все споры между Сторонами разрешаются в арбитражном суде, если до этого Стороны  не придут к взаимному соглашению.
-7. ФОРС-МАЖОР
-
-6.1.	Стороны освобождаются от ответственности за частичное или полное неисполнение своих обязательств по настоящему Договору, если это неисполнение явилось следствием форс-мажорных обстоятельств, при условии, что эти обстоятельства не зависели от воли Сторон и сделали невозможным исполнение любой из Сторон своих обязательств по настоящему Договору.
-6.2.  Сторона, для которой создалась невозможность исполнения условий, Договора, обязана не позднее 10-ти дней с момента наступления и прекращения форс- мажорного обстоятельства  в  письменной  форме  уведомить  другую  Сторону. Надлежащим подтверждением наступления и окончания действия форс-мажорных обстоятельств будут служить справки, выдаваемые региональными представительствами Торгово-Промышленной Палаты РФ. В противном случае Сторона лишается права ссылаться на эти обстоятельства, как на основании неисполнения своих обязательств по Договору.
-6.3. Если возникнут обстоятельства, имеющие характер форс-мажор, непосредственно повлиявшие на исполнение в срок обязательств, установленных в настоящем Договоре, то этот срок соразмерно отодвигается на время действия таких обстоятельств.
-6.4. При расторжении Договора по форс-мажорным обстоятельствам Стороны производят взаиморасчеты по обязательствам, выполненным на момент прекращения настоящего Договора.
-
-8. УСЛОВИЯ СОБЛЮДЕНИЯ КОНФИДЕНЦИАЛЬНОСТИ
-
-7.1. Условия настоящего договора считаются конфиденциальными. По взаимному согласию Сторон в рамках данного договора конфиденциальной признается информация, относительно предмета договора, размеры и условий оплаты, хода выполнения и результаты работ. Стороны обязуются обеспечивать конфиденциальность полученной друг от друга информации в ходе реализации договора и не допускать ее разглашения в любом виде, за исключением случаев, предусмотренных законодательством РФ.
-Любой ущерб, вызванный нарушением условий конфиденциальности, определяется и возмещается в соответствии с действующим законодательством РФ.
-
-
-8. АДРЕСА И РАСЧЁТНЫЕ СЧЕТА СТОРОН
-
-ЗАКАЗЧИК: 
-ЗАО "Вторая автобаза"
-
-Адрес: 607657, Нижегородская область, г. Кстово, ул. Магистральная, д. 4"Б", офис 4
-
-ИНН/КПП 5250000330 / 525001001
-р/с 40702810142000055936
-ВОЛГО-ВЯТСКИЙ БАНК ПАО СБЕРБАНК
-кор/сч. 30101810900000000603
-БИК 042202603
-
-Тел. ___________________________
-Email: 112@arbitr.help
-
-
-  _________________ /О.А. Щербаков/	     ПОДРЯДЧИК:  
-ООО «Геоид-НН»
-
-Адрес: 606452, Нижегородская область, г. Бор, 
-рп Большое Пикино, д. 9 кв.20
-
-ИНН/КПП  5246041359/526002003,
-р/с  40702810842000043264,
-к/с  30101810900000000603,
-Волго-Вятский банк ПАО Сбербанк
-БИК 042202603
-
-Тел. 89202541716
-e-mail:Geoid-NN@m    
-
-
- 
-__________________ /Д.В. Зубов/
-	
-                           М.П.	   					         	     М.П.
-
- 
- 
-
-
-
-
-
-
-Приложение № 1
-к договору № 2022-0280
-от «01» августа 2022 г.
-ТЕХНИЧЕСКОЕ ЗАДАНИЕ
-
-Выполнение инженерно-геодезических и кадастровых работ на земельном участке с КН 52:25:0010326:23, расположенного по адресу: Нижегородская область, г. Кстово, ул. Магистральная, д.4Б.
-
-1. Общие сведения
-1.1  Наименование выполняемых работ: Выполнение инженерно-геодезических и кадастровых работ земельном участке с  КН 52:25:0010326:23, расположенного по адресу: Нижегородская область, г. Кстово, ул. Магистральная, д.4Б
-               1.1.1 Создание топографического  плана земельного участка с КН 52:25:0010326:23;
-         1.1.2 Создание отчета по выполненным  работам.
-
-2. Место и сроки выполнения работ
-
-2.1 Работы проводятся по адресу: Нижегородская область, г. Кстово, ул. Магистральная, д.4Б 
-2.2.Дата начала выполнения Работ Подрядчик приступает к выполнению своих обязательств в день, подписания настоящего Договора.
-2.3. Дата окончания Работ определена Календарным планом (Приложение № 2 к настоящему Договору).
-
-3. Условия выполнения Работ
-
-3.1. Формы и этапы выполнения Работ определяются Календарным планом (Приложение № 2 к настоящему Договору).
-
-4. Цель и назначение Работ
-Целями выполнения Работы является следующее.
-
-4.1. Создание отчета по выполненным  работам.
-
-5. Содержание работ
-Работы должны включать в себя следующее.
-5.1 Проведение подготовительных работ (заказ сведений ЕГРН и КПТ);
-5.2. Создание планово-высотного обоснования;
-5.3. Выполнение топографической съемки земельного участка с КН 52:25:0010326:23;
-5.4. Создание отчета по выполненным  работам  (2 экз).
-
-6. Требования к проведению работ
-
-6.1. Работы организуются и ведутся в соответствии со следующими нормативными  документами:
-1. СНиП III-4-80, ПТБ-88
-2. СП 11-104-97 
-3.СНиП 11-02-96.
-4.Инструкция по топографической съемке в масштабах 1:5000-1:500.
-
-7. Порядок выполнения и приемка работ
-
-7.1. Проведение работ осуществляется в соответствии  с настоящим Техническим заданием.
-7.2. Подлежат сдаче документы, разработанные в соответствии с требованиями настоящего Технического задания.
-
-
-
-ЗАКАЗЧИК: 
-ЗАО "Вторая автобаза"
-
-
-
-
-
-____________________   /О.А. Щербаков/
-                    М.П.                 
- 
-				        ПОДРЯДЧИК:
-      ООО «Геоид-НН»           
-
-
-
-
-
-      _____________________  /Д.В. Зубов/
- М.П.
-
-
-
-
-
-
-
-
-Приложение № 2 
-к договору № 2022-0280
-от «01» августа 2022 г.
-
-КАЛЕНДАРНЫЙ  ПЛАН
-выполнения работ по договору
-
-  № 	Наименование работ
-(этапа работ)	Результат работ	Сроки или дата 
-выполнения	 Стоимость
-1	
-Выполнение инженерно-геодезических и кадастровых работ на земельном участке с
-КН 52:25:0010326:23, расположенного
-по адресу: Нижегородская область, г. Кстово, ул. Магистральная, д.4Б	
-Создание отчета по выполненным  работам  (2 экз).
-	
-5 раб. дней	
-Стоимость работ
-10 000  руб.
-
-      
-     ЗАКАЗЧИК:                                                                                                         ПОДРЯДЧИК:         
-
-ЗАО "Вторая автобаза"
-
-
-
-
-____________________   /О.А.Щербаклв/
-                    М.П.                 
- 
-				        ООО «Геоид-НН»           
-
-
-
-
-      _____________________  Д.В. Зубов
- М.П.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	        ООО «Геоид-НН»           
-
-
-
-
-
-      _____________________  /Д.В. Зубов/
-                     М.П
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Волго-Вятский банк ПАО Сбербанк  	БИК	042202603
- 	Сч. №	30101810900000000603
-Банк получателя	 	 
-ИНН	5246041359	КПП	526002003	Сч. № 	40702810842000043264
-ООО «Геоид-НН»	 	 
- 	 	 
-Получатель	 	 
-																															
-
-Счет на оплату № 01-08/2022 от 01 августа 2022 г.
- 
-
-																															
-Поставщик
-(Исполнитель):	 ООО "Геоид-НН",  
-ИНН 5246041359, КПП 526002003, 606452, Нижегородская обл, Бор г, Большое Пикино рп, 1 Мая ул, дом № 9, 
-квартира 20
-
- 	 
-																															
-Покупатель
-(Заказчик):	ЗАО "Вторая автобаза"
-Адрес: 607657, Нижегородская область, г. Кстово, ул. Магистральная, д. 4"Б", офис 4
-ИНН 5250000330, КПП 525001001
-Расчетный счет 40702810142000055936
-ВОЛГО-ВЯТСКИЙ БАНК ПАО СБЕРБАНК
-БИК 042202603   к/с 30101810900000000603
-
- 	 
-																															
-Основание:	Договор № 2022-0280 от 01 августа 2022 г.
-																															
-№	Товары (работы, услуги)	Кол-во	Ед.	Цена	Сумма
-1
-	Выполнение инженерно-геодезических и кадастровых работ на земельном участке с КН 52:25:0010326:23,
- расположенного по адресу: Нижегородская область, 
-г. Кстово, ул. Магистральная, д.4Б. 
-	-	Руб.	
-10 000	
-10 000
-	 	 	 		
-	 	 	 		
-					
-                                                                                                Всего к оплате:   10 000 руб.
-          
-Всего оказано услуг  1, на сумму  10 000 руб. 00 коп.
-Десять тысяча рублей 00 копейки	
-																															
-Оплата данного счета означает согласие Заказчика с условиями оказания услуг:
-1. Исполнитель обязуется оказать Заказчику услуги, а Заказчик обязуется их принять и оплатить.
-2. Сведения об оказываемых услугах содержатся в настоящем счете.
-3. Оплата услуг осуществляется Заказчиком путем безналичного перевода денежных средств на расчетный счет Исполнителя с обязательным указанием в платежном поручении реквизитов настоящего счета.
- 4. Заказчик обязуется оплатить услуги в размере 100% в течение 3 рабочих дней.
-5. Исполнитель обязуется оказать услуги в течение 5 рабочих дней со дня поступления оплаты на расчетный счет.
-6. Приемка оказанных услуг осуществляется путем подписания Заказчиком и Исполнителем акта об оказании услуг.
-																															
-																															
-																															
-																															
-Руководитель					Зубов Д. В.		Бухгалтер			Зубов Д. В.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
-
-
-					
-'''
-
-        self.text_doc_lower = self.text_doc.lower()
-
-
-																																
+        self.documnets_files = read_files.Open_files(file_files).documnets_files
+        if not self.documnets_files:
+            self.documnets_files = [file_files]
 
 
     def main_parse(self):
-        print(self.requisites_parse())
-        print(self.kadastr_number())
-        print(self.number_contract())
-        print(self.working_cost())
-        print(self.data_contract())
+        all_values = []
+        for i in self.documnets_files:
+            print('текущий файл - ', i)
+            self.dict_values['файл из которого взяты данные'] = i
+            self.text_doc = self.method_defination(i)
+            self.text_doc_lower = self.text_doc.lower()
+            print()
+            print('текущий файл - ',i)
+            print(self.requisites_parse())
+            print(self.kadastr_number())
+            print(self.number_contract())
+            print(self.working_cost())
+            print(self.data_contract())
+            print()
+            print('result')
+            print(self.dict_values)
+            print('end')
+            all_values.append(self.dict_values.copy())
+            self.delete_data()
+        return all_values
 
+    def delete_data(self):
+        for i in self.dict_values:
+            self.dict_values[i] = None
+    def method_defination(self,value):
+        if value.endswith('.docx'):
+            return self.extract_data_docx_file(value)
+        elif value.endswith('.doc'):
+            return self.extract_data_doc_file(value)
+        elif value.endswith('.pdf'):
+            return self.extract_data_pdf_file(value)
+        else:
+            raise FileNotFoundError(
+                                    '''данный код может обрабатывать только файлы с 
+                                        расширением docx, doc, pdf''')
     def transformation_data_replace_first_spaces(self,values:list):
         return [i.lstrip() for i in values]
 
-    def extract_data_doc_file(self,path):
+    def extract_data_docx_file(self,path):
+        '''Читаем docx файл'''
+        shablons_start = [
+            r'адреса.*сторон.*|подписи.*',
+            r'рекв[еи]зиты.*?ст.*н?',
+        ]
         doc = Document(path)
-        full_text = []
-        for para in doc.paragraphs:
-            full_text.append(para.text)
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    full_text.append(cell.text)
-        return '\n'.join(full_text)
+        full_text_from_tables = []
+        full_text_from_document = []
+        previous_text = ""
+        # Извлечение текста из параграфов с указанием стиля
+        for paragraph in doc.paragraphs:
+            if paragraph.text:  # Проверяем, что текст параграфа не пустой
+                full_text_from_document.append(paragraph.text)
 
+        # Извлечение текста из таблиц
+        for table in doc.tables:
+            table_text = ''
+            for row in table.rows:
+                try:
+                    for cell in row.cells:
+                        cell_text = cell.text.strip()
+                        if cell_text != previous_text:
+                            table_text += cell_text + '\n'
+                            full_text_from_tables.append(cell_text)
+                            previous_text = cell_text
+                except IndexError:
+                    pass
+        document_text = '\n'.join(full_text_from_document)
+        all_res = []
+        for sh in shablons_start:
+            all_res += re.findall(sh, document_text.lower(), re.I | re.DOTALL)
+        for text in all_res:
+            document_text = document_text.lower().replace(text, '',4)
+        dicts_values = {'tables_inf': self.search_requisites_text('\n'.join(full_text_from_tables)),
+                        'text_inf': '\n'.join(full_text_from_document)}
+        print(dicts_values['tables_inf'])
+        print(dicts_values['text_inf'])
+
+        # print('данные в таблицах')
+        # print(dicts_values['text_inf'])
+        # print(document_text + 'адреса и расчетные счета сторон' + '\n' + dicts_values['tables_inf'])
+        return document_text + 'адреса и расчетные счета сторон' + '\n' + dicts_values['tables_inf']
+
+    def search_requisites_text(self,text):
+        search = re.findall(r'заказчик.*?инн.*', text, re.I | re.DOTALL)
+        if search:
+            text = search[0].lower()
+            if 'подрядчик' in  text[:text.index('инн')]:
+                text = text.replace('подрядчик','')
+            return text
+
+    def extract_data_pdf_file(self, file_path):
+        text = ""
+        with open(file_path, "rb") as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            num_pages = len(pdf_reader.pages)
+            for page_num in range(num_pages):
+                page = pdf_reader.pages[page_num]
+                text += page.extract_text()
+        return text
+    def extract_data_doc_file(self,doc_path):
+        docx_path = 'result_information_in_docx_file.docx'
+        if os.path.exists(docx_path):
+            os.remove(docx_path)
+        # Загружаем документ .doc
+        try:
+            doc = aw.Document(doc_path)
+        except:
+            print('ошибка доступа к файлу, файл занят другим процессом')
+            raise RuntimeError('закройте файл чтобы продолжить')
+        # Сохраняем документ в формате .docx
+        doc.save(docx_path)
+        print(f'Файл {doc_path} успешно преобразован в файл {docx_path}')
+
+        # Чтение содержимого нового файла .docx
+        return self.extract_data_docx_file(docx_path)
     def parsing_name_customer(self,text):
+
         shablons = [r'заказчик:.+?(.+?".+?")',r'заказчик:(.+?»)',r'(ООО.+«.+»|Общество с ограниченной ответственностью.+«.+»).+именуемое в дальнейшем "заказчик"'
                     ]
         all_res = []
         for shablon in shablons:
             all_res += re.findall(shablon,text,re.I | re.DOTALL)
         if not all_res:
-            raise ValueError('Имя заказчика не найдено')
+            print('Имя заказчика не найдено')
         print('имя заказчика:')
-        return self.return_smallest_index_value(text,self.transformation_data_replace_first_spaces(all_res))
+        self.dict_values['название организации'] = self.return_smallest_index_value(text,self.transformation_data_replace_first_spaces(all_res))
 
 
     def kadastr_number(self):
@@ -446,9 +160,7 @@ ____________________   /О.А.Щербаклв/
             res_lst += re.findall(shablon,self.text_doc,re.I|re.DOTALL)
         print('кадастровый номер:')
         if res_lst:
-            print(res_lst[0])
-        else:
-            print('кадастровый номер не найден')
+            self.dict_values['кадастровый номер работ'] = res_lst[0]
 
     def number_contract(self):
         shablons = [r'договор\s*№\s*.+']
@@ -456,46 +168,35 @@ ____________________   /О.А.Щербаклв/
         for shablon in shablons:
             res_lst  += re.findall(shablon,self.text_doc,re.I)
         print('номер договора:')
+        print(res_lst[0])
         if res_lst:
-            return res_lst[0]
-        else:
-            return 'номер договора не найден'
+            self.dict_values['номер договора'] = res_lst[0]
+
 
     def working_cost(self):
-        shablons = [r'\d+\s*\d*,?\d*\s*руб']
+        shablons = [r'\d+\s*\d+,?\d*\s*?\(.*?\)\s*руб',r'\d+\s*\d*,?\d*\s*руб']
         res_lst = []
+        text = self.element_that_text_startet([r'цена договора'])
         for shablon in shablons:
-            res_lst += re.findall(shablon,self.text_doc,re.I|re.DOTALL)
-        print('цена работ:')
+            res_lst += re.findall(shablon,text,re.I|re.DOTALL)
+        print('цена договора')
         if res_lst:
-            return res_lst[0]
-        else:
-            return 'цена работ не найдена'
+            self.dict_values['стоимость работ'] = self.return_smallest_index_value(text,res_lst)
     def data_contract(self):
-        shablons = [r'\d{1,2}\s+\w+\s+\d{4}\s+г\.']
+        shablons = [r'[«"“]?\s*?\d{1,2}\s*?["»”]?\s+\w+\s*\d+\s*?г',r'\d{1,2}\s+\w+\s+\d{4}\s+г\.']
         res_lst = []
         for shablon in shablons:
             res_lst += re.findall(shablon, self.text_doc, re.I | re.DOTALL)
         print("дата договора")
         if res_lst:
-            return res_lst[0]
-        else:
-            return 'цена работ не найдена'
+            self.dict_values['дата договора'] = res_lst[0]
+
 
     def addres(self,text):
         # Шаблон для почтового адреса
-        shablon_start = [
-                        r'адреса.*сторон.*заказчик|подписи.*заказчик',
-                         r'рекв[еи]зиты.*ст.*н?',
-                         ]
-        word_search = ''
-        for i in shablon_start:
-            res_search = re.findall(i,text,re.I|re.DOTALL)
-            if res_search:
-                word_search = res_search[0]
-                break
         shablons = [
             r'заказчик.*?(юр.*?ий\s*адрес.*?)тел',
+            r'заказчик.*?(юр.*?ий\s*адрес.*?)инн',
             r'заказчик.*?(адрес.+?)инн',
             r'заказчик.*(поч.*ый\s*адрес.+?)инн',
             r'заказчик.*?(юр.*?\s*адрес.*?)огрн',
@@ -504,102 +205,106 @@ ____________________   /О.А.Щербаклв/
         lst_res = []
         for shablon in shablons:
             lst_res += re.findall(shablon, text, re.I | re.DOTALL)
+        print('результат парсинга адресса')
         if not lst_res:
             print('Адрес не найден')
-            return
-        print('результат поиска адресса')
-        return self.return_smallest_index_value(text,lst_res)
+        self.dict_values['адрес'] = self.return_smallest_index_value(text,lst_res)
 
     def inn_parse(self,text):
-        inn_shablons = [r'инн.*?\D(\d{12})\D',
+        inn_shablons = [r'инн.*?(\d{10})\D',r'инн.*?(\d{12})\D',
                         r'инн.*?\D(\d{10})\D']
         all_search_values = []
         for shablon in inn_shablons:
-            all_search_values += re.findall(shablon,text)
+            all_search_values += re.findall(shablon,text,re.I|re.DOTALL)
+        print('результат парсинга инн:')
+        print(self.return_smallest_index_value(text,all_search_values))
         if not all_search_values:
             print('ИНН не найден')
-            return
-        print('результат парсинга инн:')
-        return self.return_smallest_index_value(text,all_search_values)
+        else:
+            self.dict_values['инн'] = self.return_smallest_index_value(text,all_search_values)
+            print(self.dict_values)
     def bic_parse(self,text):
         bic_shablons = [r'бик.*?\D(\d{9})\D']
         all_search_values = []
         for shablon in bic_shablons:
-            all_search_values += re.findall(shablon, text)
+            all_search_values += re.findall(shablon, text,re.I|re.DOTALL)
+        print('результат парсинга бик:')
         if not all_search_values:
             print('БИК не найден')
-            return
-        print('результат парсинга бик:')
-        return self.return_smallest_index_value(text, all_search_values)
+        self.dict_values['бик'] = self.return_smallest_index_value(text, all_search_values)
 
     def kpp_parse(self,text):
-        kpp_shablons = [r'кпп.*?\D(\d{9})\D']
+        kpp_shablons = [r'кпп.*?\D'
+                        r'(\d{9})\D']
         all_search_values = []
         for shablon in kpp_shablons:
-            all_search_values += re.findall(shablon, text)
+            all_search_values += re.findall(shablon, text,re.I|re.DOTALL)
         if not all_search_values:
             print('КПП не найден')
-            return
         print('результат парсинга кпп:')
-        return self.return_smallest_index_value(text, all_search_values)
+        self.dict_values['кпп'] = self.return_smallest_index_value(text, all_search_values)
 
     def ogrn_parse(self,text):
         ogrn_shablons = [r'огрн.*?\D(\d+?)\D']
         all_search_values = []
         for shablon in ogrn_shablons:
-            all_search_values += re.findall(shablon, text)
+            all_search_values += re.findall(shablon, text,re.I|re.DOTALL)
         if not all_search_values:
             print('огрн не найден')
-            return
         print('результат парсинга огрн:')
-        return self.return_smallest_index_value(text, all_search_values)
+        self.dict_values['огрн'] = self.return_smallest_index_value(text, all_search_values)
 
     def payment_account(self,text):
-        r_s_shablons = [r'р[а-я]*/с[а-я]*.*?\D(\d{20})\D']
+        r_s_shablons = [r'р[а-я]*/с[а-я]*.*?\D(\d{20}\d*)\D',r'рас.*?сч.*?\D(\d{20}\d*)\D']
         all_search_values = []
         for shablon in r_s_shablons:
-            all_search_values += re.findall(shablon, text)
+            all_search_values += re.findall(shablon, text,re.I|re.DOTALL)
         if not all_search_values:
             print('расчетный счет не найден')
-            return
+        print(text)
         print('результат парсинга расчетного счета:')
-        return self.return_smallest_index_value(text, all_search_values)
+        print(all_search_values)
+        self.dict_values['расчетный счет'] = self.return_smallest_index_value(text, all_search_values)
 
     def correspondent_account(self,text):
-        k_a_shablons = [r'к[а-я]*/с[а-я]*.*?\D(\d{20})\D']
+        k_a_shablons = [r'к[а-я]*/с[а-я]*.*?\D(\d{20})\D',r'кор.*?сч.*?\D(\d{20})\D']
         all_search_values = []
         for shablon in k_a_shablons:
-            all_search_values += re.findall(shablon, text)
+            all_search_values += re.findall(shablon, text,re.I|re.DOTALL)
         if not all_search_values:
             print('корреспондентский счет не найден')
             return
+
         print('результат парсинга корреспондентского счета:')
-        return self.return_smallest_index_value(text, all_search_values)
+        self.dict_values['корреспондентский счет'] = self.return_smallest_index_value(text, all_search_values)
 
     def phone_number_parse(self,text):
         end_phone_number = ['подрядчик']
-        string_with_telephon_data = r'тел\.|телефон[:]'
-        search = re.findall(string_with_telephon_data,text)
+        string_with_telephon_data = r'тел\.|телефон[:]|тел'
+        search = re.findall(string_with_telephon_data,text,re.I|re.DOTALL)
         if not search:
-            raise ValueError('Выражение с таким шаблоном поиска телефона не найдено')
+            print('Выражение с таким шаблоном поиска телефона не найдено')
         num_phone = ''
         symb = r'\d|\s|-|\(|\)'
-        print('текст поиска телефона')
-        for i in text[text.index(search[0])+len(search[0]):]:
-            serch = re.findall(symb,i)
-            if serch:
-                num_phone += i
-            else:
-                break
-        if not num_phone:
-            print('Номер телефона не найден')
-        print('результат парсинга номера телефона')
-        return num_phone
-
-
-
-
-
+        if search:
+            index_invalid_simbs = ''
+            for i in text[text.index(search[0])+len(search[0]):]:
+                serch = re.findall(symb,i,re.I|re.DOTALL)
+                if serch:
+                    num_phone += i
+                else:
+                    if num_phone:
+                        break
+                    if index_invalid_simbs == '':
+                        index_invalid_simbs += i
+                        continue
+                    elif not re.findall(symb,index_invalid_simbs,re.I|re.DOTALL):
+                        continue
+                    break
+            print('текст поиска телефона')
+            if not num_phone:
+                print('Номер телефона не найден')
+        self.dict_values['телефон'] = num_phone
 
     def requisites_parse(self):
         values_requisites = ['инн','телефон','тел.','огрн',
@@ -607,12 +312,12 @@ ____________________   /О.А.Щербаклв/
                              'юридический адрес','кор/с',"к/с"]
         end_notify_word = ['подрядчик']
         shablons_start = [
-            r'адреса.*сторон.*заказчик|подписи.*заказчик',
-            r'рекв[еи]зиты.*ст.*н?',
+            r'адреса.*?сторон',
+            r'рекв[еи]зиты.*?сторон',
         ]
-        text = self.element_that_text_startet(shablons_start)
+        text = self.search_certain_start_end(self.text_doc,shablons_start,end_notify_word)
         if not text:
-            raise ValueError('Стартовое значене с такими шаблонами не найдено')
+            print('Стартовое значене с такими шаблонами не найдено')
         print(self.inn_parse(text))
         print(self.kpp_parse(text))
         print(self.ogrn_parse(text))
@@ -656,14 +361,14 @@ ____________________   /О.А.Щербаклв/
                 lsts_comparison.append(texts[i])
         len_check = None
         for i in lsts_comparison:
-            print(texts[i])
-            print(len_check)
             if i == 0:
                 len_check = texts[i]
             if len(texts[i]) < len(len_check):
                 len_check = texts[i]
-        print(len_check)
         return len_check
+
+    def working_type(self):
+        pass
 
     def element_that_text_startet(self,shablons):
         for shablon in shablons:
@@ -676,12 +381,30 @@ ____________________   /О.А.Щербаклв/
 
 
 
-    def search_first_have(self,text,start_element,ended_element):
-        return text[text.index(start_element):text.index(ended_element)]
+    def search_certain_start_end(self,text,start_element,ended_element):
+        ind_start = None
+        ind_end = None
+        for i in start_element:
+            search = re.findall(i,text,re.I|re.DOTALL)
+            if search:
+                ind_start = search[0]
+                break
+        text_search_now = text[text.index(ind_start):]
+        for i in ended_element:
+            search = re.findall(i, text_search_now, re.I | re.DOTALL)
+            if search:
+                ind_end = search[0]
+                break
+        if ind_end:
+            return text_search_now[:text_search_now.index(ind_end)].lower()
+        return text_search_now
+
+
 
     def return_smallest_index_value(self,text:str,values:list):
         '''возвращает значение которое находится ближе всех по индексу в тексте и
         которое самое маленькое по размеру'''
+
         least_index = None
         for i in range(len(values)):
             if i == 0:
@@ -690,8 +413,6 @@ ____________________   /О.А.Щербаклв/
             if values[i] == '' or values[i].isspace():
                 continue
             if text.index(values[i]) < text.index(least_index):
-                print(text.index(values[i]))
-                print(text.index(least_index[i]))
                 least_index = values[i]
                 continue
             elif text.index(values[i]) == text.index(least_index) and least_index != None:
@@ -711,8 +432,12 @@ ____________________   /О.А.Щербаклв/
 
 
 
+#
+# d = ParsingContractDocument('C:\\Users\Slava-Stat\Desktop\Проекты_Python\Excel_parsing\пример_файлов\пример ворда (это геморойней)\пример договоров\пример ворда (это геморойней)\пример договоров\Договор схема.docx')
+# # print(d.text_doc)
+# # print(d.addres())
+# print(d.main_parse())
 
-d = ParsingContractDocument('C:\\Users\Slava-Stat\Desktop\Проекты_Python\Excel_parsing\пример_файлов\пример ворда (это геморойней)\пример договоров\пример ворда (это геморойней)\пример договоров\Договор схема.docx')
-# print(d.text_doc)
-# print(d.addres())
-print(d.main_parse())
+# obj = ParsingContractDocument()
+# obj.main_parse()
+
